@@ -1,0 +1,30 @@
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+
+#cloud-config
+cloud_final_modules:
+- [users-groups,always]
+users:
+  - name: pezzos
+    groups: [ adm, wheel, systemd-journal ]
+    sudo: [ "ALL=(ALL) NOPASSWD:ALL" ]
+    shell: /bin/bash
+    homedir: /home/pezzos
+    ssh-authorized-keys: 
+    - AAAAB3NzaC1yc2EAAAADAQABAAABAQDQ3RDWQaLv5Trg+aO9LQWWTl+q+JemltruvjYkux22UujqJp0S/RxhR4y6g/a5IkcFQKpwGJe91TdbvRuM5cVMdLPwPw2e11YNHbrY79gtOs1mQ87imAKKlcQaDzsQQt7A3vgG8ug0MNT+iMj8CkullZymP/UJGDTAY2ZzcBRbIWVznjRmj0i36Js78ropZ3qiHynMNEthrA+adXqu1uYy3AReXxVP59hDERxmpK3OwKi0slOEWdOeLlfBKJcXgiXu1ELcMhfMPmh3m42NQDaXSSXXyGP74zCzjqysYHDRMw4bZn0kwBb22cBK9EHHL8z8zYr8D+cO2PDR61Mucnpb wpzo
+package_update: true
+package_upgrade: true
+
+# Note, that the list has to be proper yaml, so you have to quote
+# any characters yaml would eat (':' can be problematic)
+runcmd:
+ - [ ls, -l, / ]
+ - [ sh, -xc, "echo $(date) ': hello world!'" ]
+yum update
+sed -c -i "s/^#Port 22/Port 6922/" /etc/ssh/sshd_config
+sed -c -i "s/^#PermitRootLogin yes/PermitRootLogin no/" /etc/ssh/sshd_config
+
+
+semanage port -a -t ssh_port_t -p tcp 6922

@@ -25,7 +25,9 @@ runcmd:
   $ sudo curl -sS https://getcomposer.org/installer | sudo php
 $ sudo mv composer.phar /usr/local/bin/composer
 $ sudo ln -s /usr/local/bin/composer /usr/bin/composer
-
+  - echo "Host github.com" > /pezzos/.ssh/config
+  - echo "  User pezzos" >> /pezzos/.ssh/config
+  - echo "  IdentityFile ~/.ssh/id_rsaapz" >> /pezzos/.ssh/config
 # # Make sure that NOBODY can access the server without a password
 # mysql -e "UPDATE mysql.user SET Password = PASSWORD('<CHANGE_ME>') WHERE User = 'root'"
 # # Kill the anonymous users

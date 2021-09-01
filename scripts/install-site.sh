@@ -68,3 +68,6 @@ fi
 # r
 # create logs
 # composer wordpress
+# git add -u
+# git commit -m "Add new site: ${SUB}.${DOMAIN}"
+# git push

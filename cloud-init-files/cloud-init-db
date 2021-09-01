@@ -15,7 +15,7 @@ runcmd:
   - mount -a 
   systemctl enable nginx.service 
 
-  - echo "Host github.com" >> /pezzos/.ssh/config
+  - echo "Host github.com" > /pezzos/.ssh/config
   - echo "  User pezzos" >> /pezzos/.ssh/config
   - echo "  IdentityFile ~/.ssh/id_rsaapz" >> /pezzos/.ssh/config
 

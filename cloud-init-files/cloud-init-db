@@ -5,7 +5,8 @@ package_upgrade: true
 runcmd:
   - yum update -y
   - timedatectl set-timezone Europe/Paris
-    - amazon-linux-extras install -y amazon-efs-utils
+  - amazon-linux-extras install -y amazon-efs-utils
+  - yum install -y git mariadb10
   - echo "fs-50c7c7e1:/ /var/lib/mysql efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
   - echo "fs-083941d55da05ea9a:/ /pezzos/work efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
   - echo "fs-0ec934c2b885f607c:/ /pezzos/servers efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
@@ -13,6 +14,10 @@ runcmd:
   - echo "fs-50c7c7e1:/mysql /var/lib/mysql/mysql efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
   - mount -a 
   systemctl enable nginx.service 
+
+  - echo "Host github.com" >> /pezzos/.ssh/config
+  - echo "  User pezzos" >> /pezzos/.ssh/config
+  - echo "  IdentityFile ~/.ssh/id_rsaapz" >> /pezzos/.ssh/config
 
 # Make sure that NOBODY can access the server without a password
 mysql -e "UPDATE mysql.user SET Password = PASSWORD('<CHANGE_ME>') WHERE User = 'root'"

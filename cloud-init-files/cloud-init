@@ -1,0 +1,115 @@
+#cloud-config
+cloud_final_modules:
+- [users-groups,always]
+users:
+  - name: admin
+    groups: [ adm, wheel, systemd-journal ]
+    sudo: [ "ALL=(ALL) NOPASSWD:ALL" ]
+    shell: /bin/bash
+    homedir: /path/to/work
+    ssh-authorized-keys: 
+    - YOUR_SSH_PUBLIC_KEY
+package_update: true
+package_upgrade: true
+timezone: Europe/Paris
+packages:
+- nfs-utils
+
+
+# Note, that the list has to be proper yaml, so you have to quote
+# any characters yaml would eat (':' can be problematic)
+runcmd:
+#  - [ sh, -xc, "echo $(date) ': hello world!'" ]
+  - amazon-linux-extras install -y epel vim
+  - yum update -y
+  - timedatectl set-timezone Europe/Paris
+  - yum install -y fail2ban git ufw amazon-efs-utils
+  - useradd -m admin -d /path/to/work -s /bin/bash -G adm,wheel,systemd-journal
+  - mkdir /path/to/servers /path/to/work /path/to/work/bin /path/to/work/scripts /path/to/work/.ssh
+  - cp /home/ec2-user/.ssh/authorized_keys /path/to/work/.ssh/
+  - chown -R admin:admin /path/to/work
+  - chmod 600 /path/to/work/.ssh/*
+  - chmod 700 /path/to/work/.ssh/
+  - echo "admin ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/90-cloud-init-users
+
+
+
+  - sed -i -e '/^[#]*PermitRootLogin/s/^.*$/PermitRootLogin no/' /etc/ssh/sshd_config
+  - sed -i 's|[#]*PasswordAuthentication yes|PasswordAuthentication no|g' /etc/ssh/sshd_config
+  - restart ssh
+
+  - userdel ec2-user
+  - sed -i 's/^.*ec2-user.*$//g' /etc/sudoers.d/90-cloud-init-users
+
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 22/tcp
+ufw allow 3306/tcp
+ufw allow 2049/tcp
+ufw enable
+amazon-linux-extras install -y mariadb10.5
+
+# Make sure that NOBODY can access the server without a password
+mysql -e "UPDATE mysql.user SET Password = PASSWORD('YOUR_MYSQL_ROOT_PASSWORD') WHERE User = 'root'"
+# Kill the anonymous users
+mysql -e "DROP USER ''@'localhost'"
+# Because our hostname varies we'll use some Bash magic here.
+mysql -e "DROP USER ''@'$(hostname)'"
+# Delete root user
+mysql -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
+# Kill off the demo database
+mysql -e "DROP DATABASE test"
+# Make our changes take effect
+mysql -e "FLUSH PRIVILEGES"
+# Any subsequent tries to run queries this way will get access denied because lack of usr/pwd param
+
+
+#cloud-config
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+
+# Add the database if MYSQL_USER_DB is set.
+if [ ! -z "$MYSQL_USER_DB" ]; then
+	echo "=> Creating $MYSQL_USER_DB."
+	mysql -u'root' -p"$MYSQL_ROOT_PASS" -e "CREATE DATABASE IF NOT EXISTS \`$MYSQL_USER_DB\`;"
+fi
+
+# Add the MYSQL_USER_DB user if it exists and the user vars are set.
+if [ ! -z "$MYSQL_USER_NAME" -a ! -z "$MYSQL_USER_PASS" -a ! -z "$MYSQL_USER_DB" ]; then
+	echo "=> Creating $MYSQL_USER_NAME and granting privileges on $MYSQL_USER_DB."
+	echo 'Creating user.'
+	mysql -u'root' -p"$MYSQL_ROOT_PASS" -e "CREATE USER '$MYSQL_USER_NAME'@'%' IDENTIFIED BY '$MYSQL_USER_PASS';"
+	echo 'Created user.'
+	echo 'Granting user.'
+	mysql -u'root' -p"$MYSQL_ROOT_PASS" -e "GRANT ALL PRIVILEGES ON \`$MYSQL_USER_DB\`.* TO '$MYSQL_USER_NAME'@'%' WITH GRANT OPTION;"
+	echo 'Granted user.'
+fi
+
+
+#cloud-config
+runcmd:
+  - yum update -y
+  - yum install -y amazon-efs-utils
+  - echo "${EFS_DNS}:/ ${EFS_MOUNT_POINT} nfs nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
+  - echo "YOUR_NFS_SERVER:/path/to/files /home/ec2-user/files/  nfs4   defaults,noatime  1   1" >> /etc/fstab
+  - echo "YOUR_EFS_MYSQL_ID:/ /var/lib/mysql/test efs _netdev,noresvport,tls,iam 0 0" >> /etc/fstab
+  - mount -a 
+
+mount -t efs -o tls,accesspoint=YOUR_EFS_ACCESS_POINT YOUR_EFS_MYSQL_ID:/ efs
+nfsvers=4.1 – used when mounting on EC2 Linux instances
+rsize=1048576
+wsize=1048576
+hard
+timeo=600
+retrans=2
+noresvport
+
+EFS_FILE_SYSTEM_ID="YOUR_EFS_ID"
+EFS_MOUNT_POINT="/mnt/efs"
+
+YOUR_NAS_SERVER:/vol/mysql/storage /mnt/storage nfs rw,hard,nointr,rsize=65536,wsize=65536,bg,vers=3,proto=tcp,noatime
+YOUR_NAS_SERVER:/vol/mysql/tmp /mnt/mysql.tmp nfs rw,hard,nointr,rsize=65536,wsize=65536,bg,vers=3,proto=tcp,noatime
+YOUR_NAS_SERVER:/vol/mysql/log /mnt/mysql.log nfs rw,hard,nointr,rsize=65536,wsize=65536,bg,vers=3,proto=tcp,noatime
+YOUR_NAS_SERVER:/vol/mysql/data /mnt/mysql nfs rw,hard,nointr,rsize=65536,wsize=65536,bg,vers=3,proto=tcp,noatime

@@ -1,0 +1,44 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+runcmd:
+- yum update -y
+- timedatectl set-timezone Europe/Paris
+- amazon-linux-extras install -y nginx1 php8.0 amazon-efs-utils
+- yum install -y php-mbstring php-gd php-xml php-pecl-zip php-soap php-intl perl-Switch perl-DateTime perl-Sys-Syslog perl-LWP-Protocol-https perl-Digest-SHA.x86_64 libjpeg-turbo libjpeg-turbo-devel libjpeg-turbo-utils php-opcache mysql git certbot python-certbot-nginx
+- echo "YOUR_EFS_ID:/nginx/ /etc/nginx efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
+- echo "YOUR_EFS_ID:/php-fpm.d/ /etc/php-fpm.d efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
+- echo "YOUR_EFS_WORK_ID:/ /path/to/work efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
+- echo "YOUR_EFS_SERVERS_ID:/ /path/to/servers efs _netdev,noresvport,tls,iam,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
+- sed -i '/^After=.*/a RequiresMountsFor=/etc/php-fpm.d' /lib/systemd/system/php-fpm.service
+- sed -i '/^After=.*/a RequiresMountsFor=/etc/nginx' /lib/systemd/system/nginx.service
+- mount -a
+- ln -s /path/to/work/20-wordpress.ini /etc/php.d/20-wordpress.ini
+- rm /etc/php.ini
+- ln -s /path/to/work/php.ini /etc/php.ini
+- systemctl enable nginx.service
+- systemctl start nginx.service
+- systemctl enable php-fpm.service
+- systemctl start php-fpm.service
+- aws --profile default configure set aws_access_key_id "YOUR_AWS_ACCESS_KEY"
+- aws --profile default configure set aws_secret_access_key "YOUR_AWS_SECRET_KEY"
+- aws --profile default configure set region "eu-west-3"
+- curl -o /usr/local/bin/wp -L https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+- chmod +x /usr/local/bin/wp
+- curl -sS https://getcomposer.org/installer | sudo php
+- mv composer.phar /usr/local/bin/composer
+- ln -s /usr/local/bin/composer /usr/bin/composer
+- echo "Host github.com" > /path/to/work/.ssh/config
+- echo "  User git" >> /path/to/work/.ssh/config
+- echo "  IdentityFile ~/.ssh/id_rsa" >> /path/to/work/.ssh/config
+- echo "SHELL=/bin/bash" > /etc/cron.d/wpcli-update
+- echo '4 0 * * * root "/usr/local/bin/wp cli update"' >> /etc/cron.d/wpcli-update
+- echo "SHELL=/bin/bash" > /etc/cron.d/certbot-renew
+- echo '8 0 * * * root "/usr/bin/certbot renew --quiet"' >> /etc/cron.d/certbot-renew
+- echo "SHELL=/bin/bash" > /etc/cron.d/s3-fullsync
+- echo '*/10 * * * * root "/path/to/work/scripts/s3_fullsync.sh"' >> /etc/cron.d/s3-fullsync
+
+sudo certbot --nginx -d sub.example.com
+
+

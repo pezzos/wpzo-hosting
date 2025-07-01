@@ -1,0 +1,11 @@
+DB_NAME='$DBNAME'
+DB_USER='$DBNAME'
+DB_PASSWORD='$DBPASS'
+DB_HOST='YOUR_DB_SERVER_IP'
+DB_PREFIX='wpzo_'
+WP_ENV='development'
+WP_HOME='http://adm$DOMSHORT.$SUB.$DOMAIN'
+WP_SITEURL="http://adm$DOMSHORT.$SUB.$DOMAIN/wp"
+WP_DEBUG_LOG='/var/log/wordpress/TECHNAME-debug.log'
+
+$SALT
